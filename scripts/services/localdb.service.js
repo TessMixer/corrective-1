@@ -1,39 +1,100 @@
 const LocalDB = {
+  KEY: "noc-store",
+  LEGACY_ALERT_KEY: "noc-alerts",
 
-KEY: "noc-alerts",
+  normalizeState(input) {
+    return {
+      alerts: Array.isArray(input?.alerts) ? input.alerts : [],
+      corrective: input?.corrective || { fiber: [], equipment: [], other: [] },
+    };
+  },
 
-getAlerts() {
+  getState() {
+    const data = localStorage.getItem(this.KEY);
 
-const data = localStorage.getItem(this.KEY)
+    if (data) {
+      try {
+        return this.normalizeState(JSON.parse(data));
+      } catch {
+        return this.normalizeState({});
+      }
+    }
 
-return data ? JSON.parse(data) : []
+    const legacyAlerts = localStorage.getItem(this.LEGACY_ALERT_KEY);
+    if (legacyAlerts) {
+      try {
+        return this.normalizeState({
+          alerts: JSON.parse(legacyAlerts) || [],
+          corrective: { fiber: [], equipment: [], other: [] },
+        });
+      } catch {
+        return this.normalizeState({});
+      }
+    }
 
-},
+    return this.normalizeState({});
+  },
 
-saveAlerts(alerts) {
+  async syncFromCloud() {
+    if (!window.FirebaseSync?.loadCloudState) {
+      return this.getState();
+    }
 
-localStorage.setItem(this.KEY, JSON.stringify(alerts))
+    try {
+      const cloudState = await window.FirebaseSync.loadCloudState();
+      if (!cloudState) {
+        return this.getState();
+      }
 
-},
+      const normalized = this.normalizeState(cloudState);
+      this.saveState(normalized, { skipCloudSync: true });
+      return normalized;
+    } catch (error) {
+      console.warn("Cloud sync (read) failed, using local state:", error);
+      return this.getState();
+    }
+  },
 
-addAlert(alert) {
+  saveState(nextState, options = {}) {
+    const state = this.normalizeState(nextState);
 
-const alerts = this.getAlerts()
+    localStorage.setItem(this.KEY, JSON.stringify(state));
+    localStorage.setItem(this.LEGACY_ALERT_KEY, JSON.stringify(state.alerts));
 
-alerts.push(alert)
+    if (!options.skipCloudSync && window.FirebaseSync?.saveCloudState) {
+      window.FirebaseSync.saveCloudState(state).catch((error) => {
+        console.warn("Cloud sync (write) failed:", error);
+      });
+    }
+  },
 
-this.saveAlerts(alerts)
+  getAlerts() {
+    return this.getState().alerts;
+  },
 
-},
+  saveAlerts(alerts) {
+    const current = this.getState();
+    this.saveState({ ...current, alerts });
+  },
 
-deleteAlert(incidentId) {
+  getCorrective() {
+    return this.getState().corrective;
+  },
 
-let alerts = this.getAlerts()
+  saveCorrective(corrective) {
+    const current = this.getState();
+    this.saveState({ ...current, corrective });
+  },
 
-alerts = alerts.filter(a => a.incidentId !== incidentId)
+  addAlert(alert) {
+    const current = this.getState();
+    current.alerts.push(alert);
+    this.saveState(current);
+  },
 
-this.saveAlerts(alerts)
-
-}
-
-}
+  deleteAlert(incidentId) {
+    const current = this.getState();
+    current.alerts = current.alerts.filter((alert) => alert.incidentId !== incidentId);
+    this.saveState(current);
+  },
+};
