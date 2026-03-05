@@ -1,110 +1,102 @@
 // scripts/services/alert.service.js
 
 window.AlertService = {
-
   loadFromLocal() {
+    const alerts = LocalDB.getAlerts();
+    const corrective = LocalDB.getCorrective();
 
-  const alerts = LocalDB.getAlerts()
-
-    Store.dispatch(state => ({
+    Store.dispatch((state) => ({
       ...state,
-      alerts: [...state.alerts, ...alerts]
+      alerts,
+      corrective: {
+        fiber: corrective.fiber || [],
+        equipment: corrective.equipment || [],
+        other: corrective.other || [],
+      },
     }));
-
-    },
+  },
 
   async loadFromEmail() {
     const emails = await EmailRepository.getUnreadAlerts();
 
-    const alerts = emails.map(email =>
-      EmailParser.toAlert(email)
+    const alerts = emails.map((email) => EmailParser.toAlert(email));
+
+    LocalDB.saveAlerts(alerts);
+
+    Store.dispatch((state) => ({
+      ...state,
+      alerts,
+    }));
+  },
+
+  completeAlert(incidentId) {
+    const updated = Store.getState().alerts.map((alert) =>
+      alert.incidentId === incidentId ? { ...alert, status: "COMPLETE" } : alert
     );
 
-    Store.dispatch(state => ({
+    LocalDB.saveAlerts(updated);
+
+    Store.dispatch((state) => ({
       ...state,
-      alerts
+      alerts: updated,
     }));
-    },
-    completeAlert(incidentId) {
+  },
 
-    Store.dispatch(state => ({
-    ...state,
-    alerts: state.alerts.map(a =>
-    a.incidentId === incidentId
-    ? { ...a, status: 'COMPLETE' }
-    : a
-    )
-    }))
+  cancelAlert(incidentId) {
+    const updated = Store.getState().alerts.map((alert) =>
+      alert.incidentId === incidentId ? { ...alert, status: "CANCEL" } : alert
+    );
 
-},
-    cancelAlert(incidentId) {
+    LocalDB.saveAlerts(updated);
 
-    const alerts = LocalDB.getAlerts()
+    Store.dispatch((state) => ({
+      ...state,
+      alerts: updated,
+    }));
+  },
 
-    const updated = alerts.map(a =>
-    a.incidentId === incidentId
-    ? { ...a, status: "CANCEL" }
-    : a
-    )
-
-    LocalDB.saveAlerts(updated)
-
-    Store.dispatch(state => ({
-    ...state,
-    alerts: updated
-    }))
-
-    },
-    createAlert(alertData) {
-
+  createAlert(alertData) {
     const newAlert = {
-    incidentId: alertData.incidentId,
-    status: "ACTIVE",
-    createdAt: new Date().toISOString(),
-    ...alertData
-    }
+      incidentId: alertData.incidentId,
+      status: "ACTIVE",
+      createdAt: new Date().toISOString(),
+      ...alertData,
+    };
 
-    LocalDB.addAlert(newAlert)
+    const alerts = [...Store.getState().alerts, newAlert];
+    LocalDB.saveAlerts(alerts);
 
-    Store.dispatch(state => ({
-    ...state,
-    alerts: [...state.alerts, newAlert]
-    }))
+    Store.dispatch((state) => ({
+      ...state,
+      alerts,
+    }));
+  },
 
-    },
-    responseAlert(incidentId, eta){
+  responseAlert(incidentId, eta) {
+    const state = Store.getState();
+    const alert = state.alerts.find((item) => item.incidentId === incidentId);
 
-    const state = Store.getState()
+    if (!alert) return;
 
-    const alert = state.alerts.find(a => a.incidentId === incidentId)
+    let type = "other";
+    if (alert.workType === "Fiber") type = "fiber";
+    if (alert.workType === "Equipment") type = "equipment";
 
-    if(!alert) return
+    const updatedAlerts = state.alerts.filter((item) => item.incidentId !== incidentId);
+    const updatedCorrective = {
+      ...state.corrective,
+      [type]: [...(state.corrective[type] || []), { ...alert, eta, status: "PROCESS", respondedAt: new Date().toISOString() }],
+    };
 
-    let type = "other"
+    LocalDB.saveState({
+      alerts: updatedAlerts,
+      corrective: updatedCorrective,
+    });
 
-    if(alert.workType === "Fiber") type = "fiber"
-    if(alert.workType === "Equipment") type = "equipment"
-
-    Store.dispatch(s => ({
-
-    ...s,
-
-    alerts: s.alerts.filter(a => a.incidentId !== incidentId),
-
-    corrective:{
-    ...s.corrective,
-    [type]:[
-    ...(s.corrective[type] || []),
-    {
-    ...alert,
-    eta,
-    status:"PROCESS"
-    }
-    ]
-    }
-
-    }))
-
-    }
-
-  };
+    Store.dispatch((current) => ({
+      ...current,
+      alerts: updatedAlerts,
+      corrective: updatedCorrective,
+    }));
+  },
+};

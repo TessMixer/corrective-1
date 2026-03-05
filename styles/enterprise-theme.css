@@ -118,3 +118,126 @@
         justify-content: center;
         padding: 1rem;
         }
+        
+/* ===== Alert + Corrective visual refresh ===== */
+.ops-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+.corrective-table thead th {
+  background: #eef2f7;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 14px 16px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.corrective-table tbody td {
+  padding: 14px 16px;
+  border-top: 1px solid #e5e7eb;
+  color: #1f2937;
+}
+
+.corrective-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.btn-action {
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 14px;
+  line-height: 1;
+  transition: transform 0.15s ease, filter 0.2s ease;
+}
+
+.btn-action:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.97);
+}
+
+.btn-action-primary { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+.btn-action-success { background: linear-gradient(135deg, #22c55e, #16a34a); }
+.btn-action-danger { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.btn-action-purple { background: linear-gradient(135deg, #4f46e5, #6366f1); }
+
+.corrective-card {
+  background: #ffffff;
+  border: 1px solid #dbe2ea;
+  border-radius: 18px;
+  padding: 26px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.eta-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.corrective-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 20px;
+}
+
+.corrective-label {
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.corrective-value {
+  color: #1e293b;
+  font-size: 31px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.corrective-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 16px;
+}
+
+@media (max-width: 1024px) {
+  .corrective-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .corrective-value {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  .corrective-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .corrective-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+}
