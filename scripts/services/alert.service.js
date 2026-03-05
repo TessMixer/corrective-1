@@ -1,10 +1,9 @@
 // scripts/services/alert.service.js
 
 window.AlertService = {
-  async loadFromLocal() {
-    const syncedState = await LocalDB.syncFromCloud();
-    const alerts = syncedState.alerts || [];
-    const corrective = syncedState.corrective || { fiber: [], equipment: [], other: [] };
+  loadFromLocal() {
+    const alerts = LocalDB.getAlerts();
+    const corrective = LocalDB.getCorrective();
 
     Store.dispatch((state) => ({
       ...state,
