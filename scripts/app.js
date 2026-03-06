@@ -1,16 +1,21 @@
+import { initFirebase } from "./services/firebase.service.js";
+
 // ===== VIEW SWITCHER =====
 function showView(view) {
   document.querySelectorAll(".view-content").forEach((section) => {
     section.classList.add("hidden");
+    section.style.display = "none";
   });
 
   const targetView = document.getElementById(`view-${view}`);
   if (targetView) {
     targetView.classList.remove("hidden");
+    targetView.style.display = "block";
   }
 }
 
 (function bootstrapApp() {
+  const firebaseReady = initFirebase();
   const createAlertModal = document.getElementById("modal-create-alert");
 
   function openModal(modalEl) {
@@ -25,23 +30,93 @@ function showView(view) {
     }
   }
 
+
+
+  // ===== MOBILE SIDEBAR =====
+  const sidebarToggleBtn = document.getElementById("btn-toggle-sidebar");
+  const sidebarOverlay = document.getElementById("sidebar-overlay");
+
+  const mobileBreakpoint = 1024;
+
+  function setSidebarDesktopCollapsed(isCollapsed) {
+    document.body.classList.toggle("sidebar-collapsed", isCollapsed);
+  }
+
+  function setSidebarMobileOpen(isOpen) {
+    document.body.classList.toggle("sidebar-open", isOpen);
+  }
+
+  function isMobileViewport() {
+    return window.innerWidth <= mobileBreakpoint;
+  }
+
+
+  if (sidebarToggleBtn) {
+    sidebarToggleBtn.addEventListener("click", () => {
+      if (isMobileViewport()) {
+        const nextState = !document.body.classList.contains("sidebar-open");
+        setSidebarMobileOpen(nextState);
+        return;
+      }
+
+      setSidebarMobileOpen(false);
+
+      const nextState = !document.body.classList.contains("sidebar-collapsed");
+      setSidebarDesktopCollapsed(nextState);
+    });
+  }
+
+  if (sidebarOverlay) {
+    sidebarOverlay.addEventListener("click", () => setSidebarMobileOpen(false));
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      setSidebarMobileOpen(false);
+    }
+  });
+
+  document.querySelectorAll(".nav-item, .sub-nav-item").forEach((item) => {
+    item.addEventListener("click", () => {
+       if (isMobileViewport()) {
+        setSidebarMobileOpen(false);
+      }
+    });
+  });
+  
+    window.addEventListener("resize", () => {
+      updateLayout();
+
+      if (window.innerWidth <= 1024) {
+        document.body.classList.remove("sidebar-collapsed");
+      } else {
+        document.body.classList.remove("sidebar-open");
+      }
+    });
   // ===== CREATE ALERT BUTTONS =====
   const btnCreate = document.getElementById("btn-create-alert");
   if (btnCreate) {
     btnCreate.addEventListener("click", () => openModal(createAlertModal));
   }
 
+
   const btnClose = document.getElementById("btn-close-create-alert");
   if (btnClose) {
-    btnClose.addEventListener("click", () => closeModal(createAlertModal));
+    btnClose.addEventListener("click", () => {
+      closeModal(createAlertModal);
+      resetCreateTicketForm();
+    });
   }
 
   const btnDiscard = document.getElementById("btn-discard-create-alert");
   if (btnDiscard) {
-    btnDiscard.addEventListener("click", () => closeModal(createAlertModal));
+    btnDiscard.addEventListener("click", () => {
+      closeModal(createAlertModal);
+      resetCreateTicketForm();
+    });
   }
 
-  // ===== CREATE INCIDENT FORM =====
+  // ===== CREATE INCIDENT FORM =====␊
   const incidentForm = document.getElementById("create-incident-form");
 
   function generateIncidentId() {
@@ -92,13 +167,13 @@ function showView(view) {
         tickets: buildTicketsFromForm(),
       };
 
-      AlertService.createAlert(data);
+        AlertService.createAlert(data);
       closeModal(createAlertModal);
-      incidentForm.reset();
+      resetCreateTicketForm();
     });
   }
 
-  // ===== NAVIGATION =====
+  // ===== NAVIGATION =====␊
   document.querySelectorAll("[data-view]").forEach((el) => {
     el.addEventListener("click", () => {
       Store.dispatch((state) => ({
@@ -111,10 +186,11 @@ function showView(view) {
     });
   });
 
-  // ===== RENDER =====
+  // ===== RENDER =====␊
   function render(state) {
     document.querySelectorAll(".view-content").forEach((view) => {
       view.classList.add("hidden");
+      view.style.display = "none";
     });
 
     if (state.ui.currentView === "alert") {
@@ -144,6 +220,7 @@ function showView(view) {
     const activeView = document.getElementById(`view-${state.ui.currentView}`);
     if (activeView) {
       activeView.classList.remove("hidden");
+      activeView.style.display = "block";
     }
 
     document.querySelectorAll(".nav-item, .sub-nav-item").forEach((nav) => {
@@ -211,31 +288,41 @@ function showView(view) {
   }
 
   Store.subscribe(render);
+  render(Store.getState());
 
   // ===== ADD TICKET BUTTON =====
   const ticketContainer = document.getElementById("ticket-container");
   const addTicketBtn = document.getElementById("btn-add-ticket");
+  const defaultTicketFieldsMarkup = ticketContainer ? ticketContainer.innerHTML : "";
 
-  if (addTicketBtn && ticketContainer) {
+  function resetCreateTicketForm() {
+    incidentForm?.reset();
+    if (ticketContainer) {
+      ticketContainer.innerHTML = defaultTicketFieldsMarkup;
+    }
+  }
+
+    if (addTicketBtn && ticketContainer) {
     addTicketBtn.addEventListener("click", () => {
-      const ticketHTML = `
-        <div class="ticket-item grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <input placeholder="Symphony Ticket" class="ticket-field w-full bg-slate-100 rounded-lg px-3 py-2">
-          <input placeholder="Symphony CID" class="ticket-field w-full bg-slate-100 rounded-lg px-3 py-2">
-          <input placeholder="Port" class="ticket-field w-full bg-slate-100 rounded-lg px-3 py-2">
-          <input type="datetime-local" class="ticket-field w-full bg-slate-100 rounded-lg px-3 py-2">
-          <input type="datetime-local" class="ticket-field w-full bg-slate-100 rounded-lg px-3 py-2">
-          <input placeholder="Pending" class="ticket-field w-full bg-slate-100 rounded-lg px-3 py-2">
-          <input placeholder="Originate" class="ticket-field w-full bg-slate-100 rounded-lg px-3 py-2">
-          <input placeholder="Terminate" class="ticket-field w-full bg-slate-100 rounded-lg px-3 py-2">
+      const ticketHTML = `␊
+        <div class="ticket-item grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 p-3 rounded-xl border border-slate-200 bg-slate-50/60">
+          <input placeholder="Symphony Ticket" class="ticket-field w-full bg-white rounded-lg px-3 py-2 border border-slate-200">
+          <input placeholder="Symphony CID" class="ticket-field w-full bg-white rounded-lg px-3 py-2 border border-slate-200">
+          <input placeholder="Port" class="ticket-field w-full bg-white rounded-lg px-3 py-2 border border-slate-200">
+          <input type="datetime-local" class="ticket-field w-full bg-white rounded-lg px-3 py-2 border border-slate-200">
+          <input type="datetime-local" class="ticket-field w-full bg-white rounded-lg px-3 py-2 border border-slate-200">
+          <input placeholder="Pending" class="ticket-field w-full bg-white rounded-lg px-3 py-2 border border-slate-200">
+          <input placeholder="Originate" class="ticket-field w-full bg-white rounded-lg px-3 py-2 border border-slate-200">
+          <input placeholder="Terminate" class="ticket-field w-full bg-white rounded-lg px-3 py-2 border border-slate-200">
         </div>
       `;
+
 
       ticketContainer.insertAdjacentHTML("beforeend", ticketHTML);
     });
   }
 
-  // ===== RESPONSE MODAL =====
+  // ===== RESPONSE MODAL =====␊
   const responseModal = document.getElementById("modal-response");
   const cancelResponse = document.getElementById("btn-cancel-response");
   const saveResponse = document.getElementById("btn-save-response");
@@ -272,7 +359,7 @@ function showView(view) {
     });
   }
 
-  // ===== CORRECTIVE MENU =====
+  // ===== CORRECTIVE MENU =====␊
   document.querySelectorAll("#corrective-submenu div").forEach((menu) => {
     menu.onclick = () => {
       const type = menu.innerText.toLowerCase();
@@ -289,6 +376,7 @@ function showView(view) {
   });
 
 
+
   function getCorrectiveIncidentById(incidentId) {
     const state = Store.getState();
     const tabs = ["fiber", "equipment", "other"];
@@ -298,7 +386,61 @@ function showView(view) {
       if (incident) return { incident, tab };
     }
 
+
     return null;
+  }
+
+    const ofcTypeOptions = [
+    "Flat type 2 Core",
+    "4 Core ADSS",
+    "12 Core ADSS",
+    "24 Core ADSS",
+    "48 Core ADSS",
+    "60 Core ADSS",
+    "144 Core ADSS",
+    "216 Core ADSS",
+    "312 Core ADSS",
+    "12 Core Armour",
+    "48 Core Armour",
+    "60 Core Armour",
+    "144 Core Armour",
+  ];
+
+  function normalizeMultiOfcData(rawData) {
+    const normalized = {};
+    Object.entries(rawData || {}).forEach(([type, qty]) => {
+      const amount = Number.parseInt(qty, 10);
+      if (Number.isFinite(amount) && amount > 0) {
+        normalized[type] = amount;
+      }
+    });
+    return normalized;
+  }
+
+  function summarizeMultiOfcData(rawData) {
+    const normalized = normalizeMultiOfcData(rawData);
+    return Object.entries(normalized).map(([type, qty]) => `${type} ${qty} เส้น`);
+  }
+
+  function renderOfcSummaryBox(boxEl, rawData) {
+    if (!boxEl) return;
+    const summaryList = summarizeMultiOfcData(rawData);
+    if (!summaryList.length) {
+      boxEl.classList.add("hidden");
+      boxEl.textContent = "";
+      return;
+    }
+
+    boxEl.classList.remove("hidden");
+    boxEl.textContent = summaryList.join(", ");
+  }
+
+  function readMultiOfcFromModalDataset(modalEl) {
+    try {
+      return normalizeMultiOfcData(JSON.parse(modalEl?.dataset?.multiOfcDetails || "{}"));
+    } catch {
+      return {};
+    }
   }
 
   function ensureUpdateModal() {
@@ -308,14 +450,14 @@ function showView(view) {
       "beforeend",
       `
       <div id="modal-corrective-update" class="modal-backdrop hidden">
-        <div class="bg-white rounded-2xl w-full max-w-5xl p-5 max-h-[90vh] overflow-y-auto">
-          <div class="flex items-center justify-between mb-4">
+        <div class="bg-white rounded-2xl w-full max-w-6xl p-5 md:p-6 max-h-[92vh] overflow-y-auto">
+              <div class="flex items-center justify-between mb-4">
             <h3 id="corrective-update-title" class="text-xl font-bold text-slate-800">NS Update</h3>
             <button id="btn-close-corrective-update" class="px-3 py-1 bg-slate-100 rounded-lg">ปิด</button>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="border rounded-xl p-4 space-y-4">
+          <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div class="border rounded-xl p-4 md:p-5 space-y-4 bg-slate-50/40">
               <h4 class="font-semibold text-slate-700">📍 ข้อมูลจุดเสีย</h4>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -323,10 +465,15 @@ function showView(view) {
                   <label class="text-sm text-slate-600">OFC Type:</label>
                   <select id="upd-ofc-type" class="mt-1 w-full bg-slate-100 rounded-lg px-3 py-2">
                     <option value="">เลือกประเภท</option>
+                    <option>หลายเส้น</option>
                     <option>Flat type 2 Core</option><option>4 Core ADSS</option><option>12 Core ADSS</option><option>24 Core ADSS</option>
                     <option>48 Core ADSS</option><option>60 Core ADSS</option><option>144 Core ADSS</option><option>216 Core ADSS</option>
                     <option>312 Core ADSS</option><option>12 Core Armour</option><option>48 Core Armour</option><option>60 Core Armour</option><option>144 Core Armour</option>
                   </select>
+                  <div class="mt-2 p-3 rounded-lg border border-emerald-300 bg-emerald-50 hidden" id="upd-multi-ofc-summary-wrap">
+                    <div class="font-semibold text-slate-800">ข้อมูล OFC ที่เลือก:</div>
+                    <div id="upd-multi-ofc-summary" class="text-emerald-800"></div>
+                  </div>
                 </div>
                 <div>
                   <label class="text-sm text-slate-600">สาเหตุ:</label>
@@ -345,7 +492,7 @@ function showView(view) {
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                 <div>
                   <label class="text-xs text-slate-600">ชื่อ Site:</label>
                   <input id="upd-site" class="mt-1 w-full bg-slate-100 rounded-lg px-3 py-2" placeholder="เช่น PKD">
@@ -381,8 +528,7 @@ function showView(view) {
                 <button id="btn-get-pin" class="px-3 py-2 bg-red-500 text-white rounded-lg">📍 กดได้และดึงข้อมูล</button>
               </div>
             </div>
-
-            <div class="border rounded-xl p-4 space-y-3">
+            <div class="border rounded-xl p-4 md:p-5 space-y-3 bg-slate-50/40">
               <h4 class="font-semibold text-slate-700">🖼️ รูปภาพ / การดำเนินงาน</h4>
 
               <input id="upd-camera-input" type="file" accept="image/*" capture="environment" class="hidden">
@@ -410,9 +556,12 @@ function showView(view) {
                 </select>
               </div>
 
-              <div class="grid grid-cols-2 gap-3">
-                <input id="upd-etr-hour" class="bg-slate-100 rounded-lg px-3 py-2" placeholder="ชั่วโมง">
-                <input id="upd-etr-min" class="bg-slate-100 rounded-lg px-3 py-2" placeholder="นาที">
+              <div>
+                <label class="text-sm text-slate-600">ETR:</label>
+                <div class="grid grid-cols-2 gap-3 mt-1">
+                  <input id="upd-etr-hour" type="number" min="0" class="bg-slate-100 rounded-lg px-3 py-2" placeholder="ชั่วโมง">
+                  <input id="upd-etr-min" type="number" min="0" max="59" class="bg-slate-100 rounded-lg px-3 py-2" placeholder="นาที">
+                </div>
               </div>
 
               <button id="btn-generate-update" class="w-full px-3 py-2 bg-blue-500 text-white rounded-lg">⚙️ สร้างสรุป Update</button>
@@ -425,12 +574,99 @@ function showView(view) {
             <button id="btn-save-corrective-update" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">บันทึก</button>
           </div>
         </div>
+      </div>
+
+      <div id="modal-multi-ofc" class="modal-backdrop hidden">
+        <div class="bg-white rounded-2xl w-full max-w-xl p-5 max-h-[90vh] overflow-y-auto">
+          <div class="flex items-center justify-between">
+            <h4 class="text-2xl font-bold text-slate-800">🔌 หลายเส้น</h4>
+          </div>
+          <p class="text-sm text-slate-600 mt-2 mb-4">กรุณาระบุจำนวนเส้นสำหรับแต่ละประเภท</p>
+          <div id="multi-ofc-inputs" class="space-y-2"></div>
+          <div class="flex justify-end gap-2 mt-5">
+            <button id="btn-cancel-multi-ofc" class="px-4 py-2 bg-slate-200 rounded-lg">ยกเลิก</button>
+            <button id="btn-confirm-multi-ofc" class="px-4 py-2 bg-emerald-500 text-white rounded-lg">ยืนยัน</button>
+          </div>
+        </div>
       </div>`
     );
 
     const modal = document.getElementById("modal-corrective-update");
+    const ofcTypeSelect = document.getElementById("upd-ofc-type");
+    const multiOfcSummaryWrap = document.getElementById("upd-multi-ofc-summary-wrap");
+    const multiOfcSummary = document.getElementById("upd-multi-ofc-summary");
+    const multiOfcModal = document.getElementById("modal-multi-ofc");
+    const multiOfcInputs = document.getElementById("multi-ofc-inputs");
+
+    multiOfcInputs.innerHTML = ofcTypeOptions
+      .map(
+        (type) => `
+          <div class="grid grid-cols-3 gap-2 items-center">
+            <label class="col-span-2 text-slate-700">${type}:</label>
+            <input type="number" min="0" data-type="${type}" class="multi-ofc-input w-full bg-slate-50 border rounded-lg px-3 py-2" placeholder="เส้น">
+          </div>`
+      )
+      .join("");
+
+    function readMultiOfcFromPopup() {
+      const raw = {};
+      multiOfcInputs.querySelectorAll(".multi-ofc-input").forEach((input) => {
+        raw[input.dataset.type] = input.value;
+      });
+      return normalizeMultiOfcData(raw);
+    }
+
+    function renderUpdateMultiOfcSummary(rawData) {
+      renderOfcSummaryBox(multiOfcSummary, rawData);
+      const hasData = summarizeMultiOfcData(rawData).length > 0;
+      multiOfcSummaryWrap.classList.toggle("hidden", !hasData);
+    }
+
+    function setPopupValues(rawData) {
+      const normalized = normalizeMultiOfcData(rawData);
+      multiOfcInputs.querySelectorAll(".multi-ofc-input").forEach((input) => {
+        input.value = normalized[input.dataset.type] || "";
+      });
+    }
+
+    function getStoredMultiOfcData() {
+      try {
+        return JSON.parse(modal.dataset.multiOfcDetails || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function setStoredMultiOfcData(rawData) {
+      const normalized = normalizeMultiOfcData(rawData);
+      modal.dataset.multiOfcDetails = JSON.stringify(normalized);
+      renderUpdateMultiOfcSummary(normalized);
+    }
+
     document.getElementById("btn-close-corrective-update").onclick = () => closeModal(modal);
     document.getElementById("btn-cancel-corrective-update").onclick = () => closeModal(modal);
+
+    ofcTypeSelect.onchange = () => {
+      if (ofcTypeSelect.value === "หลายเส้น") {
+        setPopupValues(getStoredMultiOfcData());
+        openModal(multiOfcModal);
+      } else {
+        setStoredMultiOfcData({});
+      }
+    };
+
+    document.getElementById("btn-cancel-multi-ofc").onclick = () => {
+      closeModal(multiOfcModal);
+      if (!summarizeMultiOfcData(getStoredMultiOfcData()).length) {
+        ofcTypeSelect.value = "";
+      }
+    };
+
+    document.getElementById("btn-confirm-multi-ofc").onclick = () => {
+      const data = readMultiOfcFromPopup();
+      setStoredMultiOfcData(data);
+      closeModal(multiOfcModal);
+    };
 
     document.getElementById("upd-start").onclick = () => {
       document.getElementById("upd-clock-status").textContent = "STARTED";
@@ -547,19 +783,59 @@ function showView(view) {
     document.getElementById("upd-attachments-preview").textContent = "ยังไม่ได้เลือกไฟล์";
     modal.dataset.startClockAt = "";
     modal.dataset.stopClockAt = "";
+    modal.dataset.multiOfcDetails = "{}";
+    renderOfcSummaryBox(document.getElementById("upd-multi-ofc-summary"), {});
+    document.getElementById("upd-multi-ofc-summary-wrap").classList.add("hidden");
 
     document.getElementById("btn-generate-update").onclick = () => {
       const latest = getCorrectiveIncidentById(updateIncidentId)?.incident;
       const updateNo = ((latest?.updates || []).length || 0) + 1;
 
       const ofcType = document.getElementById("upd-ofc-type").value || "OFC";
-      const cause = document.getElementById("upd-cause").value || "ไม่ทราบสาเหตุ";
-      const site = document.getElementById("upd-site").value || "ไม่ระบุ Site";
-      const distanceM = document.getElementById("upd-distance").value || "0";
-      const area = document.getElementById("upd-area").value || "ไม่ระบุพื้นที่";
+      const multiOfcDetails = readMultiOfcFromModalDataset(modal);
+      const multiOfcSummary = summarizeMultiOfcData(multiOfcDetails);
+      const cause = document.getElementById("upd-cause").value.trim();
+      const site = document.getElementById("upd-site").value.trim();
+      const distanceM = document.getElementById("upd-distance").value.trim();
+      const area = document.getElementById("upd-area").value.trim();
+      const etrHour = document.getElementById("upd-etr-hour").value.trim();
+      const etrMin = document.getElementById("upd-etr-min").value.trim();
+      const subcontractors = Array.from(document.querySelectorAll(".upd-sub:checked")).map((el) => el.value);
 
-      const km = (Number(distanceM || 0) / 1000).toFixed(3);
-      document.getElementById("upd-message").value = `Update#${updateNo}: ตรวจสอบพบ ${ofcType} มีปัญหาห่างจาก Site ${site} ${km} km บริเวณ ${area}. สาเหตุ ${cause} กำลังเร่งดำเนินการแก้ไข.`;
+      const summaryParts = [`Update#${updateNo}: ตรวจสอบพบ OFC ${ofcType}`];
+      if (site && distanceM) {
+        const numericDistance = Number(distanceM);
+        if (Number.isFinite(numericDistance)) {
+          const km = (numericDistance / 1000).toFixed(3);
+          summaryParts.push(`มีปัญหาห่างจาก Site ${site} ${km} km`);
+        } else {
+          summaryParts.push(`มีปัญหาห่างจาก Site ${site}`);
+        }
+      } else if (site) {
+        summaryParts.push(`มีปัญหาที่ Site ${site}`);
+      } else {
+        summaryParts.push("มีปัญหา");
+      }
+
+      if (area) {
+        summaryParts.push(`บริเวณ ${area}`);
+      }
+      if (cause) {
+        summaryParts.push(`สาเหตุ ${cause}`);
+      }
+
+      const lines = [`${summaryParts.join(" ")}. กำลังเร่งดำเนินการแก้ไข.`];
+      if (multiOfcSummary.length) {
+        lines.push(`OFC : ${multiOfcSummary.join(", ")}`);
+      }
+      if (etrHour || etrMin) {
+        lines.push(`ETR : ${etrHour || "0"}.${String(etrMin || "0").padStart(2, "0")} ชั่วโมง`);
+      }
+      if (subcontractors.length) {
+        lines.push(`Sub Contractor : ${subcontractors.join(", ")}`);
+      }
+
+      document.getElementById("upd-message").value = lines.join("\n");
     };
 
     document.getElementById("btn-save-corrective-update").onclick = () => {
@@ -567,6 +843,7 @@ function showView(view) {
       const updatePayload = {
         at: new Date().toISOString(),
         ofcType: document.getElementById("upd-ofc-type").value,
+        multiOfcDetails: readMultiOfcFromModalDataset(modal),
         cause: document.getElementById("upd-cause").value,
         originate: document.getElementById("upd-originate").value,
         terminate: document.getElementById("upd-terminate").value,
@@ -686,7 +963,14 @@ function showView(view) {
             <div class="border-t pt-3">
               <h4 class="font-bold text-slate-800 mb-2">รายละเอียดงาน</h4>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div><label class="text-sm text-slate-700">OFC Type:</label><select id="finish-ofc-type" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"><option value="">เลือกประเภท</option><option>Flat type 2 Core</option><option>4 Core ADSS</option><option>12 Core ADSS</option><option>24 Core ADSS</option><option>48 Core ADSS</option><option>60 Core ADSS</option><option>144 Core ADSS</option><option>216 Core ADSS</option><option>312 Core ADSS</option><option>12 Core Armour</option><option>48 Core Armour</option><option>60 Core Armour</option><option>144 Core Armour</option></select></div>
+                                <div>
+                  <label class="text-sm text-slate-700">OFC Type:</label>
+                  <select id="finish-ofc-type" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"><option value="">เลือกประเภท</option><option>หลายเส้น</option><option>Flat type 2 Core</option><option>4 Core ADSS</option><option>12 Core ADSS</option><option>24 Core ADSS</option><option>48 Core ADSS</option><option>60 Core ADSS</option><option>144 Core ADSS</option><option>216 Core ADSS</option><option>312 Core ADSS</option><option>12 Core Armour</option><option>48 Core Armour</option><option>60 Core Armour</option><option>144 Core Armour</option></select>
+                  <div id="finish-multi-ofc-summary-wrap" class="hidden mt-2 p-3 rounded-lg border border-emerald-300 bg-emerald-50">
+                    <div class="font-semibold text-slate-800">ข้อมูล OFC ที่เลือก:</div>
+                    <div id="finish-multi-ofc-summary" class="text-emerald-800"></div>
+                  </div>
+                </div>
                 <div><label class="text-sm text-slate-700">ระยะห่างจาก Site (เมตร):</label><input id="finish-distance" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2" placeholder="เช่น 90"></div>
                 <div><label class="text-sm text-slate-700">ชื่อ Site:</label><input id="finish-site" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2" placeholder="เช่น BTS Tower"></div>
                 <div><label class="text-sm text-slate-700">สาเหตุ:</label><select id="finish-cause" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"><option value="">เลือกสาเหตุ</option><option>Animal gnawing</option><option>รถเกี่ยวสาย</option><option>ไฟไหม้</option><option>อุบัติเหตุทางถนน</option><option>OFC ปกติ</option></select></div>
@@ -707,10 +991,16 @@ function showView(view) {
               </div>
             </div>
 
-            <div class="border rounded-xl p-4 bg-slate-50 space-y-3">
+            <div class="border rounded-xl p-3 bg-slate-100 space-y-3 solution-builder">
               <div class="flex flex-wrap gap-2 items-center">
-                <button id="btn-generate-repair" class="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg">🪄 สร้างคำอธิบายอัตโนมัติ</button>
-                <select id="finish-method" class="w-full max-w-xs bg-white border border-slate-200 rounded-lg px-3 py-2">
+                <button id="btn-generate-repair" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-semibold">🪄 สร้างคำอธิบายอัตโนมัติ</button>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-start">
+                <label class="text-sm text-slate-700">วิธีการ:</label>
+
+                <select id="finish-method"
+                  class="md:col-span-2 w-full bg-white border border-teal-500 rounded-lg px-3 py-2">
                   <option value="">เลือกวิธีการ</option>
                   <option value="ลากคร่อม">ลากคร่อม</option>
                   <option value="ร่นลูป">ร่นลูป</option>
@@ -720,29 +1010,54 @@ function showView(view) {
                 </select>
               </div>
 
-              <div id="finish-method-common" class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <input id="finish-method-distance" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2" placeholder="ระยะ (เมตร)">
-                <input id="finish-cutpoint" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2" placeholder="ตัดต่อใหม่ (จุด)">
-                <input id="finish-core-point" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2" placeholder="จุดละ (Core)">
+              <div id="finish-distance-row" class="grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
+                <label class="text-sm text-slate-700">ระยะ:</label>
+                <input id="finish-method-distance" class="md:col-span-2 w-full bg-white border border-slate-300 rounded-lg px-3 py-2" placeholder="เมตร">
+                <span class="text-sm text-slate-700">เมตร</span>
               </div>
 
-              <div id="finish-method-yoke" class="hidden border rounded-lg p-3 bg-teal-50 space-y-2">
-                <div class="text-sm text-slate-700 font-semibold">รายละเอียดโยก Core</div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <input id="finish-site-a" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2" placeholder="จุดต้นทาง (Site/B/J/S)">
-                  <input id="finish-site-b" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2" placeholder="จุดปลายทาง (Site/B/J/S)">
+              <div id="finish-cut-core-row" class="grid grid-cols-1 md:grid-cols-6 gap-2 items-center">
+                <label class="text-sm text-slate-700">ตัดต่อใหม่:</label>
+                <input id="finish-cutpoint" class="md:col-span-2 w-full bg-white border border-slate-300 rounded-lg px-3 py-2" placeholder="จุด">
+                <label class="text-sm text-slate-700">จุดละ:</label>
+                <input id="finish-core-point" class="md:col-span-2 w-full bg-white border border-slate-300 rounded-lg px-3 py-2" placeholder="Core">
+              </div>
+
+              <div id="finish-method-yoke" class="hidden border rounded-lg p-3 bg-slate-200 space-y-2">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-2 items-center">
+                  <label class="text-sm text-slate-700">จุดที่ 1 (Site/BJ/S/):</label>
+                  <input id="finish-site-a" class="md:col-span-4 w-full bg-white border border-slate-300 rounded-lg px-3 py-2" placeholder="ระบุชื่อจุดที่ 1">
+                  <label class="text-sm text-slate-700">จุดที่ 2 (Site/BJ/S/):</label>
+                  <input id="finish-site-b" class="md:col-span-4 w-full bg-white border border-slate-300 rounded-lg px-3 py-2" placeholder="ระบุชื่อจุดที่ 2">
                 </div>
-                <textarea id="finish-circuit-list" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 h-24" placeholder="รายละเอียดลูกค้า/Circuit"></textarea>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <select id="finish-urgent-level" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2"><option>มีค่าเร่งด่วน</option><option>ไม่มีค่าเร่งด่วน</option></select>
-                <input id="finish-head-joint" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2" placeholder="หัวต่อ">
-                <select id="finish-connector-choice" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2"><option>ไม่ใช้หัวต่อ</option><option>ใช้หัวต่อ</option></select>
+              <div id="finish-method-yoke-detail" class="hidden border rounded-xl p-4 bg-teal-50 border-teal-400 space-y-3">
+                <div class="font-bold text-teal-900 text-xl">📝 รายละเอียดการโยก Core</div>
+                <div class="grid grid-cols-1 md:grid-cols-6 gap-2 items-center">
+                  <label class="text-teal-900 font-semibold">จุดที่ 1:</label>
+                  <input id="finish-yoke-loc-a" class="md:col-span-2 w-full bg-lime-50 border border-lime-300 rounded-lg px-3 py-2" placeholder="ใส่ชื่อจุดที่ด้านบน...">
+                  <label class="text-teal-900 font-semibold">จุดที่ 2:</label>
+                  <input id="finish-yoke-loc-b" class="md:col-span-2 w-full bg-lime-50 border border-lime-300 rounded-lg px-3 py-2" placeholder="ใส่ชื่อจุดที่ด้านบน...">
+                </div>
+                <div id="finish-yoke-circuit-rows" class="space-y-3"></div>
+                <button id="btn-add-yoke-circuit" class="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold">+ เพิ่มลูกค้า/Circuit</button>
               </div>
 
-              <textarea id="finish-repair-text" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 h-24" placeholder="คำอธิบายการแก้ไข"></textarea>
-              <select id="finish-patch-status" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2"><option>ไม่ปรับ</option><option>ปรับ</option></select>
+              <div id="finish-urgent-row" class="grid grid-cols-1 md:grid-cols-6 gap-2 items-center">
+                <label class="text-sm text-slate-700">ค่าเร่งด่วน:</label>
+                <select id="finish-urgent-level" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2"><option>มีค่าเร่งด่วน</option><option>ไม่มีค่าเร่งด่วน</option></select>
+                <label class="text-sm text-slate-700">หัวต่อ:</label>
+                <input id="finish-head-joint" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2" placeholder="หัว">
+                <label class="text-sm text-slate-700">ตัวเลือก:</label>
+                <select id="finish-connector-choice" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2"><option>ใช้หัวต่อ</option><option>ไม่ใช้หัวต่อ</option></select>
+              </div>
+
+              <textarea id="solution" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 h-24" placeholder="คำอธิบายจะสร้างอัตโนมัติ หรือใส่ข้อมูลเอง"></textarea>
+              <div>
+                <label class="text-slate-700">ปรับ/ไม่ปรับ:</label>
+                <select id="finish-patch-status" class="mt-1 w-full bg-white border border-slate-300 rounded-xl px-3 py-2"><option>ไม่ปรับ</option><option>ปรับ</option></select>
+              </div>
             </div>
           </div>
 
@@ -769,10 +1084,9 @@ function showView(view) {
     });
 
     document.getElementById("finish-method").addEventListener("change", (e) => {
-      const method = e.target.value;
-      document.getElementById("finish-method-yoke").classList.toggle("hidden", method !== "โยก Core");
-      document.getElementById("finish-method-common").classList.toggle("hidden", method === "ค่าเร่งด่วน");
+      toggleSolutionFields(e.target.value);
     });
+    document.getElementById("btn-add-yoke-circuit").onclick = () => addYokeCircuitRow();
 
     document.getElementById("btn-finish-map").onclick = () => {
       const q = document.getElementById("finish-latlng").value || document.getElementById("finish-area").value;
@@ -786,41 +1100,128 @@ function showView(view) {
         document.getElementById("finish-latlng").value = `${pos.coords.latitude}, ${pos.coords.longitude}`;
       });
     };
+    document.getElementById("finish-site-a").addEventListener("input", (event) => {
+      document.getElementById("finish-yoke-loc-a").value = event.target.value;
+    });
+    document.getElementById("finish-site-b").addEventListener("input", (event) => {
+      document.getElementById("finish-yoke-loc-b").value = event.target.value;
+    });
+    document.getElementById("finish-yoke-loc-a").addEventListener("input", (event) => {
+      document.getElementById("finish-site-a").value = event.target.value;
+    });
+    document.getElementById("finish-yoke-loc-b").addEventListener("input", (event) => {
+      document.getElementById("finish-site-b").value = event.target.value;
+    });
+
+    document.getElementById("finish-ofc-type").addEventListener("change", () => {
+      if (document.getElementById("finish-ofc-type").value !== "หลายเส้น") {
+        renderOfcSummaryBox(document.getElementById("finish-multi-ofc-summary"), {});
+        document.getElementById("finish-multi-ofc-summary-wrap").classList.add("hidden");
+      }
+    });
   }
 
-  function generateRepairText() {
+  function toggleSolutionFields(selectedMethod = "") {
+    const method = selectedMethod || document.getElementById("finish-method").value || "";
+    const isYoke = method === "โยก Core";
+    const isUrgentOnly = method === "ค่าเร่งด่วน";
+    const useDistance = method === "ลากคร่อม" || method === "ร่นลูป";
+
+    document.getElementById("finish-distance-row").classList.toggle("hidden", !useDistance);
+    document.getElementById("finish-cut-core-row").classList.toggle("hidden", isUrgentOnly);
+    document.getElementById("finish-method-yoke").classList.toggle("hidden", !isYoke);
+    document.getElementById("finish-method-yoke-detail").classList.toggle("hidden", !isYoke);
+    document.getElementById("finish-urgent-row").classList.toggle("hidden", isUrgentOnly);
+
+    if (isUrgentOnly && !document.getElementById("solution").value.trim()) {
+      document.getElementById("solution").value = "ค่า Stand By เร่งด่วน (เรียกเร่งด่วนเนื่องจาก Interface Down หลังตรวจสอบพบ F/O ปกติ)";
+    }
+  }
+
+  function addYokeCircuitRow(data = {}) {
+    const container = document.getElementById("finish-yoke-circuit-rows");
+    if (!container) return;
+    const index = container.querySelectorAll(".finish-yoke-circuit-card").length + 1;
+    const card = document.createElement("div");
+    card.className = "finish-yoke-circuit-card bg-white border border-slate-300 rounded-lg p-3 space-y-2";
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <div class="font-semibold">ลูกค้า/Circuit ที่ ${index}</div>
+        <button type="button" class="px-2 py-1 rounded bg-rose-100 text-rose-700 text-sm">ลบ</button>
+      </div>
+      <input class="finish-yoke-customer w-full bg-white border border-slate-300 rounded-lg px-3 py-2" placeholder="ชื่อลูกค้า / CID (เช่น ML25574...)" value="${data.customer || ""}">
+      <div class="border border-dashed rounded-lg p-2 space-y-2">
+        <div class="font-semibold text-teal-900">ข้อมูล ณ จุดที่ 1:</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <input class="finish-yoke-a-old bg-white border border-slate-300 rounded-lg px-3 py-2" placeholder="Core เดิม (ต่อ) เช่น 25" value="${data.aOld || ""}">
+          <input class="finish-yoke-a-new bg-white border border-slate-300 rounded-lg px-3 py-2" placeholder="Core ใหม่ (ต่อ) เช่น 32" value="${data.aNew || ""}">
+        </div>
+      </div>
+      <div class="border border-dashed rounded-lg p-2 space-y-2">
+        <div class="font-semibold text-teal-900">ข้อมูล ณ จุดที่ 2:</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <input class="finish-yoke-b-old bg-white border border-slate-300 rounded-lg px-3 py-2" placeholder="Core เดิม (ต่อ) เช่น 25" value="${data.bOld || ""}">
+          <input class="finish-yoke-b-new bg-white border border-slate-300 rounded-lg px-3 py-2" placeholder="Core ใหม่ (ต่อ) เช่น 32" value="${data.bNew || ""}">
+        </div>
+      </div>
+    `;
+    card.querySelector("button").onclick = () => card.remove();
+    container.appendChild(card);
+  }
+
+  function buildSolution() {
     const method = document.getElementById("finish-method").value || "";
-    const methodDistance = document.getElementById("finish-method-distance").value || "-";
+    const distance = document.getElementById("finish-method-distance").value || "-";
     const cutPoint = document.getElementById("finish-cutpoint").value || "-";
     const corePoint = document.getElementById("finish-core-point").value || "-";
-    const siteA = document.getElementById("finish-site-a").value || "-";
-    const siteB = document.getElementById("finish-site-b").value || "-";
-    const circuitList = document.getElementById("finish-circuit-list").value || "-";
+    const urgentLevel = document.getElementById("finish-urgent-level").value || "มีค่าเร่งด่วน";
+    const headJoint = document.getElementById("finish-head-joint").value || "";
+    const connectorChoice = document.getElementById("finish-connector-choice").value || "ไม่ใช้หัวต่อ";
 
-    let repairText = "";
+    const connectorText = connectorChoice === "ใช้หัวต่อ"
+      ? ` ใช้หัวต่อ ${headJoint || "-"} หัว`
+      : " ไม่ใช้หัวต่อ";
 
-    if (method === "ลากคร่อม") {
-      repairText = `ดำเนินการลากคร่อมระยะทาง ${methodDistance} เมตร แล้วใช้งานได้ตามปกติ`;
-    } else if (method === "ร่นลูป") {
-      repairText = `ดำเนินการร่นลูประยะทาง ${methodDistance} เมตร แล้วใช้งานได้ตามปกติ`;
+    let result = "";
+    if (method === "ลากคร่อม" || method === "ร่นลูป") {
+      result = `${method} ${distance} เมตร${connectorText}`;
     } else if (method === "ตัดต่อใหม่") {
-      repairText = `ดำเนินการตัดต่อใหม่จำนวน ${cutPoint} จุด จุดละ ${corePoint} Core แล้วใช้งานได้ตามปกติ`;
+      result = `ตัดต่อใหม่ ${cutPoint} จุด จุดละ ${corePoint} Core${connectorText}`;
     } else if (method === "โยก Core") {
-      repairText = [
-        `ดำเนินการโยก Core จากจุด ${siteA} ไปยังจุด ${siteB}`,
-        `พร้อมตัดต่อใหม่จำนวน ${cutPoint} จุด จุดละ ${corePoint} Core`,
-        `รายละเอียด Circuit ที่โยก:\n${circuitList}`,
-        "หลังดำเนินการแล้วใช้งานได้ตามปกติ",
-      ].join("\n");
+      const locA = document.getElementById("finish-site-a").value || document.getElementById("finish-yoke-loc-a").value || "-";
+      const locB = document.getElementById("finish-site-b").value || document.getElementById("finish-yoke-loc-b").value || "-";
+      const cards = Array.from(document.querySelectorAll(".finish-yoke-circuit-card"));
+      const lines = cards.map((card, idx) => {
+        const customer = card.querySelector(".finish-yoke-customer")?.value || "-";
+        const aOld = card.querySelector(".finish-yoke-a-old")?.value || "-";
+        const aNew = card.querySelector(".finish-yoke-a-new")?.value || "-";
+        const bOld = card.querySelector(".finish-yoke-b-old")?.value || "-";
+        const bNew = card.querySelector(".finish-yoke-b-new")?.value || "-";
+        return `${idx + 1}) ${customer} | จุด1: ${aOld}->${aNew} | จุด2: ${bOld}->${bNew}`;
+      });
+      result = [`โยก Core ${locA} ไป ${locB}`, ...lines].join("\n")
     } else if (method === "ค่าเร่งด่วน") {
-      repairText = "ค่า Stand By เร่งด่วน (เรียกเร่งด่วนเนื่องจาก Interface Down หลังตรวจสอบพบ F/O ปกติ)";
+      result = "ค่า Stand By เร่งด่วน (เรียกเร่งด่วนเนื่องจาก Interface Down หลังตรวจสอบพบ F/O ปกติ)";
     }
 
-    if (!repairText) {
-      return;
+    if (!result && urgentLevel) {
+      result = urgentLevel;
     }
 
-    document.getElementById("finish-repair-text").value = repairText;
+    if (result) {
+      document.getElementById("solution").value = result;
+    }
+  }
+
+  function collectYokeCircuitList() {
+    return Array.from(document.querySelectorAll(".finish-yoke-circuit-card")).map((card, idx) => {
+      const customer = card.querySelector(".finish-yoke-customer")?.value || "-";
+      const aOld = card.querySelector(".finish-yoke-a-old")?.value || "-";
+      const aNew = card.querySelector(".finish-yoke-a-new")?.value || "-";
+      const bOld = card.querySelector(".finish-yoke-b-old")?.value || "-";
+      const bNew = card.querySelector(".finish-yoke-b-new")?.value || "-";
+      return `${idx + 1}) ${customer} | จุด1: ${aOld}->${aNew} | จุด2: ${bOld}->${bNew}`;
+    }).join("\n")
   }
 
   function openCorrectiveFinishModal(incidentId) {
@@ -839,6 +1240,12 @@ function showView(view) {
     document.getElementById("finish-circuit").value = `${firstTicket.cid || ""} ${firstTicket.port || ""}`.trim();
 
     document.getElementById("finish-ofc-type").value = latestUpdate.ofcType || "";
+    const latestMultiOfc = normalizeMultiOfcData(latestUpdate.multiOfcDetails || {});
+    renderOfcSummaryBox(document.getElementById("finish-multi-ofc-summary"), latestMultiOfc);
+    document.getElementById("finish-multi-ofc-summary-wrap").classList.toggle(
+      "hidden",
+      !(document.getElementById("finish-ofc-type").value === "หลายเส้น" && summarizeMultiOfcData(latestMultiOfc).length)
+    );
     document.getElementById("finish-distance").value = latestUpdate.distance || "";
     document.getElementById("finish-site").value = latestUpdate.site || "";
     document.getElementById("finish-cause").value = latestUpdate.cause || "";
@@ -854,8 +1261,16 @@ function showView(view) {
     document.getElementById("finish-core-point").value = "";
     document.getElementById("finish-site-a").value = "";
     document.getElementById("finish-site-b").value = "";
-    document.getElementById("finish-circuit-list").value = "";
-    document.getElementById("finish-repair-text").value = "";
+    document.getElementById("solution").value = "";
+    document.getElementById("finish-head-joint").value = "";
+    document.getElementById("finish-yoke-loc-a").value = latestUpdate.siteA || "";
+    document.getElementById("finish-yoke-loc-b").value = latestUpdate.siteB || "";
+    document.getElementById("finish-yoke-circuit-rows").innerHTML = "";
+    const savedCircuits = String(latestUpdate.circuitList || "").split("\n").map((line) => line.trim()).filter(Boolean);
+    if (savedCircuits.length) {
+      savedCircuits.forEach((line) => addYokeCircuitRow({ customer: line }));
+    }
+    toggleSolutionFields(document.getElementById("finish-method").value);
 
     document.querySelectorAll(".finish-sub").forEach((el) => {
       el.checked = (latestUpdate.subcontractors || []).includes(el.value);
@@ -880,7 +1295,7 @@ function showView(view) {
 
     fillAutoTimes();
     document.getElementById("btn-auto-times").onclick = fillAutoTimes;
-    document.getElementById("btn-generate-repair").onclick = generateRepairText;
+    document.getElementById("btn-generate-repair").onclick = buildSolution;
 
     document.getElementById("btn-save-finish").onclick = () => {
       const current = Store.getState();
@@ -902,6 +1317,7 @@ function showView(view) {
         },
         details: {
           ofcType: document.getElementById("finish-ofc-type").value,
+          multiOfcDetails: latestMultiOfc,
           distance: document.getElementById("finish-distance").value,
           site: document.getElementById("finish-site").value,
           cause: document.getElementById("finish-cause").value,
@@ -913,11 +1329,11 @@ function showView(view) {
           corePoint: document.getElementById("finish-core-point").value,
           siteA: document.getElementById("finish-site-a").value,
           siteB: document.getElementById("finish-site-b").value,
-          circuitList: document.getElementById("finish-circuit-list").value,
+          circuitList: collectYokeCircuitList(),
           urgentLevel: document.getElementById("finish-urgent-level").value,
           headJoint: document.getElementById("finish-head-joint").value,
           connectorChoice: document.getElementById("finish-connector-choice").value,
-          repairText: document.getElementById("finish-repair-text").value,
+          repairText: document.getElementById("solution").value,
           patchStatus: document.getElementById("finish-patch-status").value,
         },
       };
@@ -944,7 +1360,13 @@ function showView(view) {
 
   // ===== INITIAL LOAD =====
   (async function init() {
-    AlertService.loadFromLocal();
+        try {
+      await firebaseReady;
+    } catch (error) {
+      console.warn("Firebase init failed, fallback to local data only:", error);
+    }
+
+    await AlertService.loadFromLocal();
     // await AlertService.loadFromEmail();
   })();
 })();
